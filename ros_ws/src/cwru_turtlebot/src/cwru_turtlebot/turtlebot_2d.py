@@ -97,14 +97,14 @@ def main():
     y_lower = rospy.get_param('/y_lower')
 
     # move the robot back and forth randomly until process killed with ctrl-c
-    while not rospy.is_shutdown():
-        robot.move(goal_x=random.uniform(x_lower, x_upper),
-                   goal_y=random.uniform(y_lower, y_upper),
-                   x_lower_bound=x_lower,
-                   x_upper_bound=x_upper,
-                   y_lower_bound=y_lower,
-                   y_upper_bound=y_upper)
-        rospy.sleep(5)
+    #while not rospy.is_shutdown():
+    robot.move(goal_x=10,
+               goal_y=0,
+               x_lower_bound=x_lower,
+               x_upper_bound=x_upper,
+               y_lower_bound=y_lower,
+               y_upper_bound=y_upper)
+    #    rospy.sleep(5)
 
 if __name__ == '__main__':
     # run program and gracefully handle exit

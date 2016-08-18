@@ -4,8 +4,9 @@
     <arg name="sim_time" default="60"/>
     <arg name="debug" default="false"/>
     <arg name="gps" default="true"/>
-    <arg name="noisy" default="true"/>
+    <arg name="noisy" default="false"/>
     <arg name="stationary" default="false"/>
+    <arg name= "state_tracker" default="false"/>
 
     <group if="$(arg gps)">
         <group if="$(arg noisy)">
@@ -51,10 +52,15 @@
     <param name="y_upper" type="double" value="5"/>
     <param name="y_lower" type="double" value="-5"/>
     <param name="debug" type="bool" value="$(arg debug)"/>
+    <param name="state_tracker" type="bool" value="$(arg state_tracker)"/>
 
     <include file="$(find cwru_turtlebot)/launch/gazebo/world_common.launch.xml">
         <arg name="debug" value="$(arg debug)"/>
         <arg name="gui" value="$(arg gui)"/>
+    </include>
+
+    <include file="$(find state_tracker)/launch/map_comparator.launch.xml">
+        <arg name="state_tracker" value="$(arg state_tracker)"/>
     </include>
 
     <group ns="turtlebot1">
