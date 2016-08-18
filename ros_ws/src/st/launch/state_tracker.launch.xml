@@ -1,0 +1,17 @@
+<!-- 
+    ROS navigation stack with velocity smoother and safety (reactive) controller
+-->
+<launch>
+    <!--arg name="custom_param_file" default="$(find cwru_turtlebot)/param/dummy.yaml"/-->
+
+    <node pkg="state_tracker" type="state_tracker" name="map_comparator" required="true">
+
+    </node>
+</launch>
+
+<launch>
+    <arg name="state_tracker" default="false"/>
+
+    <node if="$(arg state_tracker)" pkg="state_tracker" type="map_comparator.py" name="map_comparator" required="true" output="screen"/>
+
+</launch>
