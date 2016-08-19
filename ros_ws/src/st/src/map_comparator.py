@@ -9,7 +9,8 @@ import numpy 	as np
 from visualization_msgs.msg import Marker, MarkerArray
 from scipy 					import spatial, stats
 from object_tracker.msg 	import behv, state, st_beh
-from geometry_msgs.msg 		import Twist, Pose
+from geometry_msgs.msg 		import Twist
+from nav_msgs.msg			import Odometry
 from time 					import sleep
 from math 					import pi
 from collections			import deque
@@ -25,7 +26,9 @@ st_var			= np.array([1,1,.4,.8,.4])
 beh_var 		= np.array([.2,.2])
 rand_len		= 200
 
-			deque([][])
+COMPARE_SIZE 	= 2
+state_queue		= deque([],COMPARE_SIZE) #in order to differentiate we collect last two results
+twist_queue		= deque([],COMPARE_SIZE)
 
 '''
 Used to obtain the state/behavior lists and the map updated from those lists
@@ -82,9 +85,7 @@ def get_yaw(orientation):
 		orientation.z,
 		orientation.w)
 	euler = tf.transformations.euler_from_quaternion(quaternion)
-	roll = euler[0]
-	pitch = euler[1]
-	yaw = euler[2]
+	return euler[2]
 
 
 def state_to_list(state_queue):
@@ -93,13 +94,12 @@ def state_to_list(state_queue):
 	num_s = len(state_queue)
 
 	for s in state_queue:
-
 		sum_vx += s.position.x
 		sum_rx += get_yaw(s.orientation)
 	res_vx = sum_vx / num_s
 	res_rz = sum_rx / num_s
 
-	return [state_queue[-1].linear.x, get_yaw(state_queue[-1].orientation), state.th, res_vx, res_rz]
+	return [state_queue[-1].position.x, state_queue[-1].position.y, get_yaw(state_queue[-1].orientation), res_vx, res_rz]
 
 def beh_to_list(twist_queue):
 	sum_ax = 0
@@ -124,7 +124,7 @@ def beh_callback(twist):
 	global twist_queue
 	#pudb.set_trace() #For Debugging
 	twist_queue.append(twist)
-	if len(twist_queue >= 2):
+	if len(twist_queue) == COMPARE_SIZE:
 		mac 	= get_mac(twist)
 		beh 	= beh_to_list(twist_queue)
 		k_list[mac].upd_PF_behv(beh)
@@ -133,14 +133,14 @@ def beh_callback(twist):
 '''
 Sensor info coming in [x,y]
 '''
-def sns_callback(state):
+def sns_callback(odom): #TODO if twist is already published obtain it instead
 	global k_list
 	global state_queue
 
-	state_queue.append(state)
-	if len(state_queue >= 2):
+	state_queue.append(odom.pose.pose)
+	if len(state_queue) == COMPARE_SIZE:
 		mac 		= get_mac(state)
-		rcv_list	= state_to_list(state)
+		rcv_list	= state_to_list(state_queue)
 		mean 		= k_list[mac].upd_PF_sens(rcv_list)
 		publish_positions(mean, rcv_list)
 		prob  		= get_comp_prob(mean, k_list[mac])
@@ -304,7 +304,7 @@ if __name__ == '__main__':
 	k_list[12345] 	= compromized_state(0.05, init_pos)
 
 	rospy.Subscriber("/turtlebot1/mobile_base/commands/velocity", Twist, beh_callback)
-	rospy.Subscriber("/turtlebot1/odometry/filtered_discrete", Pose, sns_callback)
+	rospy.Subscriber("/turtlebot1/odometry/filtered_discrete", Odometry, sns_callback)
 	particle_pub 	= rospy.Publisher('pose_cloud', MarkerArray, queue_size=100)
 	rcv_pos 		= rospy.Publisher('rcv_pos', Marker, queue_size=100)
 	mean_pos 		= rospy.Publisher('mean_pos', Marker, queue_size=100)
