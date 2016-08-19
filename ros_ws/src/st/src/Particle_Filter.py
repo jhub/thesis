@@ -44,7 +44,11 @@ class Particle_Filter(object):
 				self.point_list = np.hstack((self.point_list,np.random.uniform(self.d_limits[i][0],self.d_limits[i][1],self.array_size).reshape((self.array_size, 1))))
 		
 		if init_guess is not None and len(self.point_list) > 0:
-			self.point_list[-1] = init_guess
+			self.bias(init_guess)
+
+
+	def bias(self, point):
+		self.point_list[-1] = point
 
 
 	def upd_points(self, sensor_point):
@@ -52,6 +56,7 @@ class Particle_Filter(object):
 		tot_weight = self.set_weights(sensor_point)
 		self.normalize_weights(tot_weight)
 		self.resample()
+		self.bias(sensor_point)
 		return self.get_mean_and_var(self.point_list)
 
 

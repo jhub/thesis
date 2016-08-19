@@ -22,11 +22,14 @@ from obj_tr_constants		import g_func_v_p
 
 MAP_MAX_NGBR 	= 100
 
+COMPROMISED_STATE_CSV	= "uncomp_map.csv"
+UNCOMPROMISED_STATE_CSV = "comp_map.csv"
+
 st_var			= np.array([1,1,.4,.8,.4])
 beh_var 		= np.array([.2,.2])
 rand_len		= 200
 
-COMPARE_SIZE 	= 2
+COMPARE_SIZE 	= 3
 state_queue		= deque([],COMPARE_SIZE) #in order to differentiate we collect last two results
 twist_queue		= deque([],COMPARE_SIZE)
 
@@ -51,9 +54,18 @@ def insert_noised(map_st_beh, curr_state, curr_beh):
 
 
 '''
-Loads the compromised and uncompromised maps
+Loads the compromised and uncompromised maps from planned coordinates
 '''
-def load_beh_lists():
+def load_beh_lists_csv():
+	beh_list_u = load_csv_states(UNCOMPROMISED_STATE_CSV)
+	beh_list_c = load_csv_states(COMPROMISED_STATE_CSV)
+
+	return beh_list_u, beh_list_c
+
+'''
+Loads the compromised and uncompromised maps from planned coordinates
+'''
+def load_beh_lists_planned():
 	global bc_interval
 	un_comp 				= [ [[.5,0],2],[[0,0],2],[[0,-pi/8],2],[[0,pi/4],2],[[0,-pi/8],2],[[0,0],4],[[0,pi/8],2],[[0,-pi/4],2],[[0,pi/8],2],[[0,0],2],[[-.5,0],2] ]
 	beh_list_u				= get_sample_construct(un_comp,bc_interval)
@@ -172,11 +184,11 @@ def compare_sb(state, beh, kd_list, map_st_beh):
 	if len(kd_list) > 0 and len(kd_list[1]) > len(map_st_beh[0]): #check dimensions for enough pts (non singular matrix)
 
 		st_kernel 	= stats.gaussian_kde(map_st_beh[data]) 
-		bh_kernel	= stats.gaussian_kde(map_st_beh[pred_beh]) 
+		#bh_kernel	= stats.gaussian_kde(map_st_beh[pred_beh]) 
 		state_pdf 	= st_kernel.pdf(state)[0]			#Likelyhood of doing a recorded state
-		beh_pdf 	= bh_kernel.pdf(beh)[0]				#Likelyhood of following a behavior prev done
+		#beh_pdf 	= bh_kernel.pdf(beh)[0]				#Likelyhood of following a behavior prev done
 
-		return state_pdf * beh_pdf
+		return state_pdf# * beh_pdf
 	raise Exception("Need more points")
 
 
@@ -291,7 +303,7 @@ if __name__ == '__main__':
 	init_state_u			= [0.0,0.0,0.0,0.0,0.0]
 	init_state_c			= [0.0,0.0,0.0,0.0,0.0]
 	#pudb.set_trace() #For Debugging
-	beh_list_u, beh_list_c 	= load_beh_lists()
+	beh_list_u, beh_list_c 	= load_beh_lists_planned()
 
 	get_full_planned(g_func_v_p,map_st_beh_u,init_state_u,beh_list_u,bc_interval)
 	get_full_planned(g_func_v_p,map_st_beh_c,init_state_c,beh_list_c,bc_interval)
@@ -317,7 +329,7 @@ if __name__ == '__main__':
 		listener_thread.setDaemon(True)
 		listener_thread.start()
 
-	print "Ready"
+	print "Map Comparator Ready!"
 
 	rospy.spin()
 
