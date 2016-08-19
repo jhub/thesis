@@ -55,10 +55,10 @@ Loads the compromised and uncompromised maps
 '''
 def load_beh_lists():
 	global bc_interval
-	un_comp 				= [ [[0,0],1], [[.5,0],2],[[0,0],2],[[0,-pi/8],2],[[0,pi/4],2],[[0,-pi/8],2],[[0,0],4],[[0,pi/8],2],[[0,-pi/4],2],[[0,pi/8],2],[[0,0],2],[[-.5,0],2],[[0,0],1] ]
+	un_comp 				= [ [[.5,0],2],[[0,0],2],[[0,-pi/8],2],[[0,pi/4],2],[[0,-pi/8],2],[[0,0],4],[[0,pi/8],2],[[0,-pi/4],2],[[0,pi/8],2],[[0,0],2],[[-.5,0],2] ]
 	beh_list_u				= get_sample_construct(un_comp,bc_interval)
 
-	comp 					= [ [[0,0],1], [[.5,0],2],[[0,0],18],[[-.5,0],2],[[0,0],1] ]
+	comp 					= [ [[.5,0],2],[[0,0],18],[[-.5,0],2] ]
 	beh_list_c				= get_sample_construct(comp,bc_interval)
 
 	return beh_list_u, beh_list_c
@@ -89,28 +89,31 @@ def get_yaw(orientation):
 
 
 def state_to_list(state_queue):
-	sum_vx	= 0
-	sum_rx 	= 0
-	num_s = len(state_queue)
+	sum_vx 	= state_queue[-1][0].position.x - state_queue[0][0].position.x
+	sum_rx 	= get_yaw(state_queue[-1][0].orientation) - get_yaw(state_queue[0][0].orientation)
+	num_s	= (state_queue[-1][1] - state_queue[0][1]).to_sec()
 
-	for s in state_queue:
-		sum_vx += s.position.x
-		sum_rx += get_yaw(s.orientation)
 	res_vx = sum_vx / num_s
 	res_rz = sum_rx / num_s
 
-	return [state_queue[-1].position.x, state_queue[-1].position.y, get_yaw(state_queue[-1].orientation), res_vx, res_rz]
+	st_list = [state_queue[-1][0].position.x, state_queue[-1][0].position.y, get_yaw(state_queue[-1][0].orientation), res_vx, res_rz]
+	print st_list
+	return st_list
 
 def beh_to_list(twist_queue):
 	sum_ax = 0
 	sum_az = 0
-	num_t = len(twist_queue)
-	for t in twist_queue:
-		sum_ax += t.linear.x
-		sum_az += t.angular.z
-	res_ax = sum_ax / num_t
-	res_az = sum_az / num_t
-	return [res_ax, res_az]
+
+	sum_ax 	= twist_queue[-1][0].linear.x - twist_queue[0][0].linear.x
+	sum_az 	= twist_queue[-1][0].angular.z - twist_queue[0][0].angular.z
+	num_t	= (twist_queue[-1][1] - twist_queue[0][1]).to_sec()
+
+	res_ax 	= sum_ax / num_t
+	res_az 	= sum_az / num_t
+
+	bh_list = [res_ax, res_az]
+	print bh_list
+	return bh_list
 
 def get_mac(msg):
 	return 12345 #TODO obtain mac.. possible with sec msgs. in simulation? CHANGE MSG TYPE
@@ -123,7 +126,7 @@ def beh_callback(twist):
 	global k_list
 	global twist_queue
 	#pudb.set_trace() #For Debugging
-	twist_queue.append(twist)
+	twist_queue.append([twist,rospy.get_rostime()])
 	if len(twist_queue) == COMPARE_SIZE:
 		mac 	= get_mac(twist)
 		beh 	= beh_to_list(twist_queue)
@@ -137,7 +140,7 @@ def sns_callback(odom): #TODO if twist is already published obtain it instead
 	global k_list
 	global state_queue
 
-	state_queue.append(odom.pose.pose)
+	state_queue.append([odom.pose.pose,rospy.get_rostime()])
 	if len(state_queue) == COMPARE_SIZE:
 		mac 		= get_mac(state)
 		rcv_list	= state_to_list(state_queue)
