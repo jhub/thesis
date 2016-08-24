@@ -17,7 +17,7 @@ from collections			import deque
 from bayes 					import compromized_state
 from random 				import gauss
 from threading 				import Thread
-from obj_tr_constants		import x,y,th,v_x, v_th, a_x,a_th, data, pred_beh, bc_interval
+from obj_tr_constants		import x,y,th,v_x, v_th, data, pred_beh, bc_interval
 from obj_tr_constants		import g_func_v_p
 
 MAP_MAX_NGBR 	= 100
@@ -25,13 +25,11 @@ MAP_MAX_NGBR 	= 100
 COMPROMISED_STATE_CSV	= "uncomp_map.csv"
 UNCOMPROMISED_STATE_CSV = "comp_map.csv"
 
-st_var			= np.array([1,1,.4,.8,.4])
+st_var			= np.array([1,1,.4])
 beh_var 		= np.array([.2,.2])
 rand_len		= 200
 
 COMPARE_SIZE 	= 3
-state_queue		= deque([],COMPARE_SIZE) #in order to differentiate we collect last two results
-twist_queue		= deque([],COMPARE_SIZE)
 
 '''
 Used to obtain the state/behavior lists and the map updated from those lists
@@ -46,12 +44,23 @@ def get_full_planned(g_func,map_st_beh, curr_state, beh_list, dt):
 def insert_noised(map_st_beh, curr_state, curr_beh):
 	global st_var, beh_var#, rand_len
 	if not len(map_st_beh[data]):
-		map_st_beh[data] 		= np.atleast_2d(curr_state[:] + np.random.normal(0,st_var)).T
+		map_st_beh[data] 		= np.atleast_2d(curr_state[:] + np.random.normal(0,st_var)).T 									#[[[statex],[statey],[stateth]],[[behx][behth]]
 		map_st_beh[pred_beh]	= np.atleast_2d(curr_beh[:] + np.random.normal(0,beh_var)).T
 	else:
-		map_st_beh[data] 		= np.hstack([map_st_beh[data],np.atleast_2d(curr_state[:] + np.random.normal(0,st_var)).T])
-		map_st_beh[pred_beh] 	= np.hstack([map_st_beh[pred_beh],np.atleast_2d(curr_beh[:] + np.random.normal(0,beh_var)).T])
+		map_st_beh[data] 		= np.hstack([map_st_beh[data],np.atleast_2d(curr_state[:] + np.random.normal(0,st_var)).T])		#[[[statex1,statex2],[statey1,statey2],[stateth1,stateth2]],
+		map_st_beh[pred_beh] 	= np.hstack([map_st_beh[pred_beh],np.atleast_2d(curr_beh[:] + np.random.normal(0,beh_var)).T])	#[[behx1, behx2][behth1,behth2]]
+	#print map_st_beh
 
+
+'''
+loads a csv file of states
+'''
+def load_csv_states(filename):
+	beh_list = []
+	with open('filename', 'rb') as csvfile:
+		spamreader = csv.reader(csvfile, delimiter=' ', quotechar='|')
+		for row in spamreader:
+			print ', '.join(row)
 
 '''
 Loads the compromised and uncompromised maps from planned coordinates
@@ -67,10 +76,10 @@ Loads the compromised and uncompromised maps from planned coordinates
 '''
 def load_beh_lists_planned():
 	global bc_interval
-	un_comp 				= [ [[.5,0],2],[[0,0],2],[[0,-pi/8],2],[[0,pi/4],2],[[0,-pi/8],2],[[0,0],4],[[0,pi/8],2],[[0,-pi/4],2],[[0,pi/8],2],[[0,0],2],[[-.5,0],2] ]
+	un_comp 				= [ [[.5,0],2],[[1,0],2],[[1,-pi/8],2],[[1,pi/4],2],[[1,-pi/8],2],[[1,0],4],[[1,pi/8],2],[[1,-pi/4],2],[[1,pi/8],2],[[1,0],2],[[.5,0],2] ]
 	beh_list_u				= get_sample_construct(un_comp,bc_interval)
 
-	comp 					= [ [[.5,0],2],[[0,0],18],[[-.5,0],2] ]
+	comp 					= [ [[.5,0],2],[[1,0],18],[[.5,0],2] ]
 	beh_list_c				= get_sample_construct(comp,bc_interval)
 
 	return beh_list_u, beh_list_c
@@ -80,7 +89,6 @@ def load_beh_lists_planned():
 Creates a behavior list 
 '''
 def get_sample_construct(sample_list, dt):
-	map_st_beh 		= [[],[]]
 	beh_list 	= []
 
 	for bh in sample_list:
@@ -100,31 +108,30 @@ def get_yaw(orientation):
 	return euler[2]
 
 
-def state_to_list(state_queue):
-	sum_vx 	= state_queue[-1][0].position.x - state_queue[0][0].position.x
-	sum_rx 	= get_yaw(state_queue[-1][0].orientation) - get_yaw(state_queue[0][0].orientation)
-	num_s	= (state_queue[-1][1] - state_queue[0][1]).to_sec()
+def state_to_list(odom_msg):
+	# sum_vx 	= state_queue[-1][0].position.x - state_queue[0][0].position.x
+	# sum_rx 	= get_yaw(state_queue[-1][0].orientation) - get_yaw(state_queue[0][0].orientation)
+	# num_s	= (state_queue[-1][1] - state_queue[0][1]).to_sec()
 
-	res_vx = sum_vx / num_s
-	res_rz = sum_rx / num_s
+	# res_vx = sum_vx / num_s
+	# res_rz = sum_rx / num_s
 
-	st_list = [state_queue[-1][0].position.x, state_queue[-1][0].position.y, get_yaw(state_queue[-1][0].orientation), res_vx, res_rz]
-	print st_list
+	st_list = [odom_msg.pose.pose.position.x, odom_msg.pose.pose.position.y, get_yaw(odom_msg.pose.pose.orientation)]
+
 	return st_list
 
-def beh_to_list(twist_queue):
-	sum_ax = 0
-	sum_az = 0
+def beh_to_list(twist_msg):
+	# sum_ax = 0
+	# sum_az = 0
 
-	sum_ax 	= twist_queue[-1][0].linear.x - twist_queue[0][0].linear.x
-	sum_az 	= twist_queue[-1][0].angular.z - twist_queue[0][0].angular.z
-	num_t	= (twist_queue[-1][1] - twist_queue[0][1]).to_sec()
+	# sum_ax 	= twist_queue[-1][0].linear.x - twist_queue[0][0].linear.x
+	# sum_az 	= twist_queue[-1][0].angular.z - twist_queue[0][0].angular.z
+	# num_t	= (twist_queue[-1][1] - twist_queue[0][1]).to_sec()
 
-	res_ax 	= sum_ax / num_t
-	res_az 	= sum_az / num_t
+	# res_ax 	= sum_ax / num_t
+	# res_az 	= sum_az / num_t
 
-	bh_list = [res_ax, res_az]
-	print bh_list
+	bh_list = [twist_msg.linear.x , twist_msg.angular.z]
 	return bh_list
 
 def get_mac(msg):
@@ -136,13 +143,11 @@ Changes the control of the particle filter
 '''
 def beh_callback(twist):
 	global k_list
-	global twist_queue
 	#pudb.set_trace() #For Debugging
-	twist_queue.append([twist,rospy.get_rostime()])
-	if len(twist_queue) == COMPARE_SIZE:
-		mac 	= get_mac(twist)
-		beh 	= beh_to_list(twist_queue)
-		k_list[mac].upd_PF_behv(beh)
+
+	mac 	= get_mac(twist)
+	beh 	= beh_to_list(twist)
+	k_list[mac].upd_PF_behv(beh)
 
 
 '''
@@ -150,17 +155,14 @@ Sensor info coming in [x,y]
 '''
 def sns_callback(odom): #TODO if twist is already published obtain it instead
 	global k_list
-	global state_queue
 
-	state_queue.append([odom.pose.pose,rospy.get_rostime()])
-	if len(state_queue) == COMPARE_SIZE:
-		mac 		= get_mac(state)
-		rcv_list	= state_to_list(state_queue)
-		mean 		= k_list[mac].upd_PF_sens(rcv_list)
-		publish_positions(mean, rcv_list)
-		prob  		= get_comp_prob(mean, k_list[mac])
-		if prob is not None:
-			print "Likelyhood of being compromised is: " + str(prob) 
+	mac 		= get_mac(state)
+	sensor_pt	= state_to_list(odom)
+	mean 		= k_list[mac].upd_PF_sens(sensor_pt)
+	publish_positions(mean, sensor_pt)
+	prob  		= get_comp_prob(mean, k_list[mac])
+	if prob is not None:
+		print "Likelyhood of being compromised is: " + str(prob) 
 
 
 def get_comp_prob(state, bayes_obj):
@@ -196,15 +198,14 @@ def compare_sb(state, beh, kd_list, map_st_beh):
 Updates the particle filter
 '''
 def bayes_upd(bayes_obj):
-	UPD_FREQUENCY	= rospy.Rate(20)
+	UPD_FREQUENCY	= .1
 	upd = 0
 	while True:
 		pointList = bayes_obj.get_PF_state()
 		#pointlist can be used to display, but should not be used to determine prob
 		if pointList is not None:
 			publish_particles(pointList)
-
-		UPD_FREQUENCY.sleep()
+		rospy.sleep(UPD_FREQUENCY)
 
 
 def publish_particles(pointList):
@@ -237,7 +238,7 @@ def publish_particles(pointList):
 		marker.pose.orientation.w 	= tempQuaternion[3]
 
 		marker.id 				= i
-		marker.header.frame_id 	= "/my_frame"
+		marker.header.frame_id 	= "/map"
 		marker.header.stamp 	= rospy.Time.now()
 		marker.action 			= marker.ADD
 
@@ -247,8 +248,8 @@ def publish_particles(pointList):
 
 
 def publish_positions(mean_prtcl, rcv_prtcl):
-	mean_marker 	= get_marker(mean_prtcl, rand_len + 1, "/my_frame", [.3,.3,1])
-	rcv_pos_marker 	= get_marker(rcv_prtcl, rand_len + 2, "/my_frame", [1,.3,.3])
+	mean_marker 	= get_marker(mean_prtcl, rand_len + 1, "/map", [.3,.3,1])
+	rcv_pos_marker 	= get_marker(rcv_prtcl, rand_len + 2, "/map", [1,.3,.3])
 
 	mean_pos.publish(mean_marker)
 	rcv_pos.publish(rcv_pos_marker)
@@ -298,10 +299,10 @@ if __name__ == '__main__':
 	map_st_beh_u 			= [[],[]]
 	map_st_beh_c 			= [[],[]]
 	k_list 					= {}
-	bc_interval				= 1
+	bc_interval				= .2
 
-	init_state_u			= [0.0,0.0,0.0,0.0,0.0]
-	init_state_c			= [0.0,0.0,0.0,0.0,0.0]
+	init_state_u			= [0.0,0.0,0.0]
+	init_state_c			= [0.0,0.0,0.0]
 	#pudb.set_trace() #For Debugging
 	beh_list_u, beh_list_c 	= load_beh_lists_planned()
 
@@ -315,11 +316,13 @@ if __name__ == '__main__':
 	kd_map_c = spatial.KDTree(map_st_beh_c[data].T)
 
 	#This is incoming conections, emulated hardcoded
-	init_pos 		= np.array([0.0,0.0,0.0,0.0,0.0])
+	init_pos 		= np.array([0.0,0.0,0.0])
 	k_list[12345] 	= compromized_state(0.05, init_pos)
 
 	rospy.Subscriber("/turtlebot1/mobile_base/commands/velocity", Twist, beh_callback)
-	rospy.Subscriber("/turtlebot1/odometry/filtered_discrete", Odometry, sns_callback)
+	rospy.Subscriber("/turtlebot1/odom_throttle", Odometry, sns_callback)
+	#rospy.Subscriber("/turtlebot1/odometry/filtered_discrete", Odometry, sns_callback)
+
 	particle_pub 	= rospy.Publisher('pose_cloud', MarkerArray, queue_size=100)
 	rcv_pos 		= rospy.Publisher('rcv_pos', Marker, queue_size=100)
 	mean_pos 		= rospy.Publisher('mean_pos', Marker, queue_size=100)

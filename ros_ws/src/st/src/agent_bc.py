@@ -42,14 +42,14 @@ def get_sample_construct(sample_list, dt):
 	return beh_list
 
 
-def load_beh_lists():
-	un_comp 				= [ [[0,0],1], [[.5,0],2],[[0,0],2],[[0,-pi/8],2],[[0,pi/4],2],[[0,-pi/8],2],[[0,0],4],[[0,pi/8],2],[[0,-pi/4],2],[[0,pi/8],2],[[0,0],2],[[-.5,0],2],[[0,0],1] ]
+def load_beh_lists(comp_map):
+	un_comp 				= [ [[.5,0],2],[[1,0],2],[[1,-pi/8],2],[[1,pi/4],2],[[1,-pi/8],2],[[1,0],4],[[1,pi/8],2],[[1,-pi/4],2],[[1,pi/8],2],[[1,0],2],[[.5,0],2] ]
 	beh_list_u				= get_sample_construct(un_comp,bc_interval)
 
-	comp 					= [ [[0,0],1], [[.5,0],2],[[0,0],18],[[-.5,0],2],[[0,0],1] ]
+	comp 					= [ [[.5,0],2],[[1,0],18],[[.5,0],2] ]
 	beh_list_c				= get_sample_construct(comp,bc_interval)
 
-	return beh_list_u
+	return beh_list_u if comp_map else beh_list_c
 
 
 def publish_state_beh(state_beh_list, bc_interval):
@@ -93,10 +93,11 @@ if __name__ == '__main__':
 	pub_behv				= rospy.Publisher('beh_k1', behv, queue_size=10)
 	pub_st_beh 				= rospy.Publisher('st_beh_k1', st_beh, queue_size=10)
 
-	init_state 				= [0.0,0.0,0.0,0.0,0.0]
+	init_state 				= [0.0,0.0,0.0]
 	map_beh 				= [[],[]]
 	#pudb.set_trace() #For Debugging
-	beh_list				= load_beh_lists()
+	comp_map 				= True
+	beh_list				= load_beh_lists(comp_map)
 
 	state_beh_list			= get_full_planned(g_func_v_p,map_beh,init_state,beh_list,bc_interval)
 

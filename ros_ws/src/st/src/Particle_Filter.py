@@ -12,7 +12,7 @@ from random					import random, gauss
 from math					import hypot, pi, sin, cos, asin, acos, atan2
 from scipy.stats			import norm
 
-from obj_tr_constants		import x,y,th,v_x, v_th, a_x,a_th, data, pred_beh
+from obj_tr_constants		import x,y,th,v_x, v_th, data, pred_beh
 
 
 
@@ -47,8 +47,8 @@ class Particle_Filter(object):
 			self.bias(init_guess)
 
 
-	def bias(self, point):
-		self.point_list[-1] = point
+	def bias(self, pos):
+		self.point_list[-1] = pos
 
 
 	def upd_points(self, sensor_point):
@@ -118,7 +118,7 @@ class Particle_Filter(object):
 			tot_cos		=+ cos(ang)
 			tot_sin		=+ sin(ang)
 
-		return atan2(asin(tot_sin),acos(tot_cos))
+		return atan2(tot_sin,tot_cos)
 		
 
 	def rot_diff(self,rot_in):

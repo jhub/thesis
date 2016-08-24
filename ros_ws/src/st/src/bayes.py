@@ -8,7 +8,6 @@ import math
 import numpy as np
 
 from Particle_Filter 	import Particle_Filter
-from time 				import time
 from threading 			import RLock
 
 from obj_tr_constants	import d_limits, array_size, g_func_v_p, g_res_fn,h_function, R, Q
@@ -19,14 +18,14 @@ class compromized_state(object):
 
 	current_behv 	= np.array([0,0]) #Initialize all particles to stationary TODO: if no behavior come in but sensor data does (must use random)
 	stationary 		= True
-	last_time 		= time()
+	last_time 		= None
 
 	def __init__(self, initial_prob, init_guess = None):
 		self.c_prob 			= initial_prob
 		self.init_prob 			= self.c_prob 
 		self.particle_filter 	= Particle_Filter(d_limits, array_size, g_func_v_p, g_res_fn,h_function, R, Q, init_guess)
 		self.lock 				= RLock()
-		self.last_time 			= time()
+		self.last_time 			= rospy.Time.now()
 
 	def update_prob(self, comp_prob, uncomp_prob):
 		self.c_prob = comp_prob * self.c_prob / (comp_prob * self.c_prob + uncomp_prob * (1 - self.c_prob))
@@ -66,7 +65,7 @@ class compromized_state(object):
 	'''
 	def upd_PF_sens(self, sensor_point):
 		mean = self.particle_filter.upd_points(sensor_point)
-		return mean
+		return mean #TODO: CHANGE!!! This bypasses the particle filter
 
 	'''
 	Updates the particle filter based on the motion model
@@ -80,7 +79,7 @@ class compromized_state(object):
 
 		
 	def get_duration(self):
-		tmp 			= time()
+		tmp 			= rospy.Time.now()
 		dur 			= tmp - self.last_time
 		self.last_time 	= tmp
-		return dur
+		return dur.to_sec()
