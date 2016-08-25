@@ -21,10 +21,10 @@
         <param name="transform_time_offset" value="0.0"/>
         <param if="$(arg noisy)" name="odom0" value="noisy_odom_remapped"/> <!-- internal odom-->
         <param unless="$(arg noisy)" name="odom0" value="odom_remapped"/>
-        <rosparam param="odom0_config">[false,  false,  false, <!-- x y z -->
-                                        false,  false,  false, <!-- roll pitch yaw -->
-                                        true,  true,   false, <!-- x_vel y_vel z_vel -->
-                                        false,  false,  true, <!-- roll_vel pitch_vel yaw_vel -->
+        <rosparam param="odom0_config">[true,  true,  false, <!-- x y z -->
+                                        false,  false,  true, <!-- roll pitch yaw -->
+                                        false,  false,   false, <!-- x_vel y_vel z_vel -->
+                                        false,  false,  false, <!-- roll_vel pitch_vel yaw_vel -->
                                         false,  false,  false] <!-- x_acc y_acc z_acc -->
         </rosparam>
         <!--<param name="imu0" value="imu_data_remapped"/>-->

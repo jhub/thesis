@@ -6,6 +6,9 @@
     <arg name="sensor_record"/>
     <arg name="gps"/>
     <arg name="noisy"/>
+    <arg name="comp"/>
+
+    <param name="comp" type="bool" value="$(arg comp)" />
 
     <include file="$(find cwru_turtlebot)/launch/includes/turtlebot_common.launch.xml">
         <arg name="model_name" value="$(arg model_name)"/>

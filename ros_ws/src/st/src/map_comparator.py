@@ -200,7 +200,7 @@ Updates the particle filter
 def bayes_upd(bayes_obj):
 	UPD_FREQUENCY	= .1
 	upd = 0
-	while True:
+	while rospy.is_shutdown():
 		pointList = bayes_obj.get_PF_state()
 		#pointlist can be used to display, but should not be used to determine prob
 		if pointList is not None:

@@ -8,7 +8,7 @@ import helpers
 
 from nav_msgs.msg import Odometry
 from std_msgs.msg import UInt64
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
 from sensor_msgs.msg import Imu
 
 # Data for recording
@@ -26,6 +26,8 @@ imu_data = None
 noisy_odom_data = None
 gps_data = None
 
+behv_data = None
+
 # csv.writer() objects
 continuous_writer = None
 discrete_writer = None
@@ -35,6 +37,7 @@ imu_writer = None
 noisy_odom_writer = None
 gps_writer = None
 
+behv_writer = None
 
 def initial_position_callback(position):
     # Record the initial position of the robot so that we can convert the odometry values from the robot's odom frame
@@ -142,6 +145,15 @@ def gps_callback(gps_msg):
     gps_data = (x, y)
 
 
+def behv_callback(behv_msg):
+    global behv_data
+
+    vx      = behv_msg.linear.x
+    vth     = behv_msg.angular.z
+
+    behv_data = (vx, vth)
+
+
 def make_sure_path_exists(path):
     global namespace
 
@@ -195,6 +207,11 @@ def write_headers():
         with open(filename, 'w+') as gps_file:
             writer = csv.writer(gps_file)
             writer.writerow(['x', 'y'])
+
+        filename = prefix + namespace + '_behv_data.csv'
+        with open(filename, 'w+') as behv_file:
+            writer = csv.writer(behv_file)
+            writer.writerow(['vx', 'vth'])
     else:
         if namespace is None:
             rospy.logdebug('Could not write headers because namespace was not initialized')
@@ -212,6 +229,7 @@ def write_to_files(event):
     global imu_data
     global noisy_odom_data
     global gps_data
+    global behv_data
     global namespace
     global prefix
 
@@ -223,11 +241,13 @@ def write_to_files(event):
     global noisy_odom_writer
     global gps_writer
 
+    global behv_writer
+
     assert None not in (continuous_writer, discrete_writer, gazebo_writer, external_writer, imu_writer,
-                        noisy_odom_writer, gps_writer, namespace, prefix)
+                        noisy_odom_writer, gps_writer, behv_writer, namespace, prefix)
 
     # Synchronized writing for data published at 10Hz or higher
-    if None not in (continuous_data, discrete_data, gazebo_data, external_count, imu_data, noisy_odom_data):
+    if None not in (continuous_data, discrete_data, gazebo_data, external_count, imu_data, noisy_odom_data, behv_data):
         # rospy.logdebug(namespace + ': Writing to sensor data to files')
         continuous_writer.writerow(continuous_data)
         discrete_writer.writerow(discrete_data)
@@ -235,6 +255,7 @@ def write_to_files(event):
         external_writer.writerow(external_count)
         imu_writer.writerow(imu_data)
         noisy_odom_writer.writerow(noisy_odom_data)
+        behv_writer.writerow(behv_data)
 
         # Invalidate fields so that we don't record duplicate data multiple times in the case of sensor failure
         continuous_data = None
@@ -242,6 +263,7 @@ def write_to_files(event):
         gazebo_data = None
         imu_data = None
         noisy_odom_data = None
+        behv_data = None
 
         # GPS data publishes slower than odometry so it must be checked/written separately
         if gps_data is not None:
@@ -260,6 +282,8 @@ def write_to_files(event):
             rospy.logdebug(namespace + ': Could not write data because file prefix was not initialized')
         if noisy_odom_data is None:
             rospy.logdebug(namespace + ': Could not write data because noisy odom data was not initialized')
+        if behv_data is None:
+            rospy.logdebug(namespace + ': Could not write data because behavior data was not initialized')        
         if gps_data is None:
             rospy.logdebug(namespace + ': Could not write data because gps data was not initialized')
         if imu_data is None:
@@ -301,6 +325,8 @@ def main():
     noisy_odom_subscriber = rospy.Subscriber('noisy_odom_remapped', Odometry, noisy_odom_callback)
     gps_subscriber = rospy.Subscriber('fake_gps', PoseWithCovarianceStamped, gps_callback)
 
+    behv_subcriber   = rospy.Subscriber("mobile_base/commands/velocity", Twist, behv_callback)
+
     global continuous_writer
     global discrete_writer
     global gazebo_writer
@@ -309,13 +335,16 @@ def main():
     global noisy_odom_writer
     global gps_writer
 
+    global behv_writer
+
     with open(prefix + namespace + '_continuous_filter_odom.csv', 'a+') as continuous_file, \
         open(prefix + namespace + '_discrete_filter_odom.csv', 'a+') as discrete_file, \
         open(prefix + namespace + '_gazebo_odom.csv', 'a+') as gazebo_file, \
         open(prefix + namespace + '_external_pose_count.csv', 'a+') as external_file, \
         open(prefix + namespace + '_imu_data.csv', 'a+') as imu_file, \
         open(prefix + namespace + '_noisy_odom_data.csv', 'a+') as noisy_odom_file, \
-        open(prefix + namespace + '_gps_data.csv', 'a+') as gps_file:
+        open(prefix + namespace + '_gps_data.csv', 'a+') as gps_file,\
+        open(prefix + namespace + '_behv_data.csv', 'a+') as behv_file:
 
         continuous_writer = csv.writer(continuous_file)
         discrete_writer = csv.writer(discrete_file)
@@ -324,6 +353,8 @@ def main():
         imu_writer = csv.writer(imu_file)
         noisy_odom_writer = csv.writer(noisy_odom_file)
         gps_writer = csv.writer(gps_file)
+
+        behv_writer = csv.writer(behv_file)
 
         timer = rospy.Timer(rospy.Duration(.1), write_to_files)
         

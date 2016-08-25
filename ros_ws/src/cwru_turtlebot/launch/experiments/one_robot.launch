@@ -7,40 +7,41 @@
     <arg name="noisy" default="false"/>
     <arg name="stationary" default="false"/>
     <arg name= "state_tracker" default="false"/>
+    <arg name= "comp_one" default="false"/>
 
     <group if="$(arg gps)">
         <group if="$(arg noisy)">
             <group if="$(arg stationary)">
-                <param name="save_file_prefix" type="string" value="/home/matt/thesis/experiment_data/one_stationary"/>
+                <param name="save_file_prefix" type="string" value="$(env HOME)/thesis/experiment_data/one_stationary"/>
             </group>
             <group unless="$(arg stationary)">
-                <param name="save_file_prefix" type="string" value="/home/matt/thesis/experiment_data/one_mobile"/>
+                <param name="save_file_prefix" type="string" value="$(env HOME)/thesis/experiment_data/one_mobile"/>
             </group>
         </group>
         <group unless="$(arg noisy)">
             <group if="$(arg stationary)">
-                <param name="save_file_prefix" type="string" value="/home/matt/thesis/experiment_data/one_stationary_noiseless"/>
+                <param name="save_file_prefix" type="string" value="$(env HOME)/thesis/experiment_data/one_stationary_noiseless"/>
             </group>
             <group unless="$(arg stationary)">
-                <param name="save_file_prefix" type="string" value="/home/matt/thesis/experiment_data/one_mobile_noiseless"/>
+                <param name="save_file_prefix" type="string" value="$(env HOME)/thesis/experiment_data/one_mobile_noiseless"/>
             </group>
         </group>
     </group>
     <group unless="$(arg gps)">
         <group if="$(arg noisy)">
             <group if="$(arg stationary)">
-                <param name="save_file_prefix" type="string" value="/home/matt/thesis/experiment_data/one_stationary_no_gps"/>
+                <param name="save_file_prefix" type="string" value="$(env HOME)/thesis/experiment_data/one_stationary_no_gps"/>
             </group>
             <group unless="$(arg stationary)">
-                <param name="save_file_prefix" type="string" value="/home/matt/thesis/experiment_data/one_mobile_no_gps"/>
+                <param name="save_file_prefix" type="string" value="$(env HOME)/thesis/experiment_data/one_mobile_no_gps"/>
             </group>
         </group>
         <group unless="$(arg noisy)">
             <group if="$(arg stationary)">
-                <param name="save_file_prefix" type="string" value="/home/matt/thesis/experiment_data/one_stationary_noiseless_no_gps"/>
+                <param name="save_file_prefix" type="string" value="$(env HOME)/thesis/experiment_data/one_stationary_noiseless_no_gps"/>
             </group>
             <group unless="$(arg stationary)">
-                <param name="save_file_prefix" type="string" value="/home/matt/thesis/experiment_data/one_mobile_noiseless_no_gps"/>
+                <param name="save_file_prefix" type="string" value="$(env HOME)/thesis/experiment_data/one_mobile_noiseless_no_gps"/>
             </group>
         </group>
     </group>
@@ -53,6 +54,7 @@
     <param name="y_lower" type="double" value="-5"/>
     <param name="debug" type="bool" value="$(arg debug)"/>
     <param name="state_tracker" type="bool" value="$(arg state_tracker)"/>
+    <param name="comp_one" type="bool" value="$(arg comp_one)"/>
 
     <include file="$(find cwru_turtlebot)/launch/gazebo/world_common.launch.xml">
         <arg name="debug" value="$(arg debug)"/>
@@ -79,6 +81,7 @@
             <arg name="sensor_record" value="$(arg sensor_record)"/>
             <arg name="gps" value="$(arg gps)"/>
             <arg name="noisy" value="$(arg noisy)"/>
+            <arg name="comp" value="$(arg comp_one)"/>
         </include>
     </group>
 </launch>

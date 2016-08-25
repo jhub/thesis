@@ -7,7 +7,8 @@ import math
 from geometry_msgs.msg import Twist, PoseStamped
 from turtlebot import TurtleBot
 from move_base_msgs.msg import MoveBaseActionGoal, MoveBaseGoal
-from helpers import convert_quaternion_to_yaw, correct_angle
+from helpers import convert_quaternion_to_yaw, correct_angle, convert_yaw_to_quaternion
+from math import pi
 
 
 class TurtleBot2D(TurtleBot, object):
@@ -26,20 +27,15 @@ class TurtleBot2D(TurtleBot, object):
     def move(self, goal_x=0, goal_y=0, goal_yaw=0, x_lower_bound=-1, x_upper_bound=1, y_lower_bound=-1, y_upper_bound=1):
         # To prevent robot getting stuck or drifting towards just one specific area over course of experiment
         # Randomly send to middle of allowable area with 1% probability
-        rand = random.uniform(0, 100)
-        if rand == 1:
-            goal_x = (x_lower_bound + x_upper_bound) / 2
-            goal_y = (y_lower_bound + y_upper_bound) / 2
-
         goal_pose = PoseStamped()
-        goal_pose.header.stamp = rospy.Time.now()
-        goal_pose.header.frame_id = 'map'
-        goal_pose.pose.position.x = goal_x
-        goal_pose.pose.position.y = goal_y
-        goal_pose.pose.orientation = self.continuous_pose_wrt_map.pose.pose.orientation  # Always keep our orientation the same
+
 
         goal = MoveBaseGoal()
-        goal.target_pose = goal_pose
+        goal.target_pose.header.stamp = rospy.Time.now()
+        goal.target_pose.header.frame_id = 'map'
+        goal.target_pose.pose.position.x = goal_x
+        goal.target_pose.pose.position.y = goal_y
+        goal.target_pose.pose.orientation = convert_yaw_to_quaternion(goal_yaw)
 
         try:
             rospy.logdebug('Waiting for move_base server')
@@ -86,25 +82,68 @@ class TurtleBot2D(TurtleBot, object):
         # check that the val is between lower and upper values
         return lower < val < upper
 
+def get_full_planned(g_func,map_beh, curr_state, beh_dur_list, dt):
+    state_beh_list = []
+    for beh_dur in beh_dur_list:
+        state_beh_list.append([curr_state[:], beh_dur[:]])
+        curr_state = g_func(curr_state,beh_dur,dt)
+    return state_beh_list
+
+
+'''
+Used to choose between open loop trajectories; each element with [x, theta] velocities and the duration. With the given dt it creates a list to call.
+'''
+def load_target_lists(comp_map):
+    un_comp                 = [[1,4,6,9,10],
+                                [0,-3,-3,0,0],
+                                [-pi/4,0,pi/4,0,0]]
+    comp                    = [[10],
+                                [0],
+                                [0]]
+    return un_comp if not comp_map else comp
 
 def main():
     # create a movable turtle bot object
-    robot = TurtleBot2D()
+    robot = TurtleBot2D(0,0)
 
-    x_upper = rospy.get_param('/x_upper')
-    x_lower = rospy.get_param('/x_lower')
-    y_upper = rospy.get_param('/y_upper')
-    y_lower = rospy.get_param('/y_lower')
+    # cmd_vel_pub = rospy.Publisher('mobile_base/commands/velocity', Twist, queue_size=1)
+
+    # bc_interval             = .2
+    # init_state              = [0.0,0.0,0.0]
+    # map_beh                 = [[],[]]
+    # #pudb.set_trace() #For Debugging
+    # comp_map                = False
+    # beh_list                = load_beh_lists(comp_map,bc_interval)
+
+    # for cmd in beh_list:
+    #     command             = Twist()
+    #     command.linear.x    = cmd[0]
+    #     command.angular.z   = cmd[1]
+
+    #     cmd_vel_pub.publish(command)
+
+    #     rospy.sleep(bc_interval)
+
+    x_upper = 20#rospy.get_param('/x_upper')
+    x_lower = 20#rospy.get_param('/x_lower')
+    y_upper = 20#rospy.get_param('/y_upper')
+    y_lower = 20#rospy.get_param('/y_lower')
+
+    comp_map                = rospy.get_param("comp")
+    pos_list                = load_target_lists(comp_map)
 
     # move the robot back and forth randomly until process killed with ctrl-c
-    #while not rospy.is_shutdown():
-    robot.move(goal_x=10,
-               goal_y=0,
-               x_lower_bound=x_lower,
-               x_upper_bound=x_upper,
-               y_lower_bound=y_lower,
-               y_upper_bound=y_upper)
-    #    rospy.sleep(5)
+    for index in range(len(pos_list[0])):
+        robot.move(goal_x=pos_list[0][index],
+                   goal_y=pos_list[1][index],
+                   goal_yaw=pos_list[1][index],
+                   x_lower_bound=x_lower,
+                   x_upper_bound=x_upper,
+                   y_lower_bound=y_lower,
+                   y_upper_bound=y_upper)
+    
+    while not rospy.is_shutdown():
+        rospy.sleep(5)
 
 if __name__ == '__main__':
     # run program and gracefully handle exit
