@@ -14,6 +14,8 @@ from obj_tr_constants	import d_limits, array_size, g_func_v_p, g_res_fn,h_functi
 
 dest_macs_lock		= RLock()
 
+MAX_CHANGE_RATE 	= .3
+
 class compromized_state(object):
 
 	current_behv 	= np.array([0,0]) #Initialize all particles to stationary TODO: if no behavior come in but sensor data does (must use random)
@@ -27,19 +29,28 @@ class compromized_state(object):
 		self.lock 				= RLock()
 		self.last_time 			= rospy.Time.now()
 
+	'''
+	Bayes equation at work, adjusted to not be too volatile
+	'''
 	def update_prob(self, comp_prob, uncomp_prob):
-		self.c_prob = comp_prob * self.c_prob / (comp_prob * self.c_prob + uncomp_prob * (1 - self.c_prob))
-		self.adjust_prob()
+		tmp = comp_prob * self.c_prob / (comp_prob * self.c_prob + uncomp_prob * (1 - self.c_prob))
+		self.c_prob = self.adjust_prob(comp_prob, tmp)
 
 
-	def adjust_prob(self):
-		if self.c_prob < 0.0001:
-			self.c_prob = .0001
-		elif self.c_prob > 0.9999:
-			self.c_prob = 0.9999
-		elif math.isnan(self.c_prob):
+	def adjust_prob(self, old_prob, new_prob):
+		if math.isnan(new_prob):
 			print "NaN cought"
-			self.c_prob = self.init_prob
+			return old_prob
+
+		if abs(new_prob - old_prob) > MAX_CHANGE_RATE:
+			new_prob = new_prob - MAX_CHANGE_RATE if new_prob > old_prob else new_prob + MAX_CHANGE_RATE
+
+		if new_prob < 0.0001:
+			new_prob = .0001
+		elif new_prob > 0.9999:
+			new_prob = 0.9999
+
+		return new_prob
 
 
 	def get_c_prob(self):

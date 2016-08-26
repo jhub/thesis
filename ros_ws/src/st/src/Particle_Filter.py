@@ -56,7 +56,7 @@ class Particle_Filter(object):
 		tot_weight = self.set_weights(sensor_point)
 		self.normalize_weights(tot_weight)
 		self.resample()
-		self.bias(sensor_point)
+		#self.bias(sensor_point)
 		return self.get_mean_and_var(self.point_list)
 
 

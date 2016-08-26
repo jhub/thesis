@@ -337,6 +337,8 @@ def main():
 
     global behv_writer
 
+    print "Writing data to: " + prefix + namespace
+
     with open(prefix + namespace + '_continuous_filter_odom.csv', 'a+') as continuous_file, \
         open(prefix + namespace + '_discrete_filter_odom.csv', 'a+') as discrete_file, \
         open(prefix + namespace + '_gazebo_odom.csv', 'a+') as gazebo_file, \

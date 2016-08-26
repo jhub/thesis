@@ -30,6 +30,7 @@ beh_var 		= np.array([.2,.2])
 rand_len		= 200
 
 COMPARE_SIZE 	= 3
+INITIAL_PROB 	= 0.05
 
 '''
 Used to obtain the state/behavior lists and the map updated from those lists
@@ -318,11 +319,11 @@ if __name__ == '__main__':
 
 	#This is incoming conections, emulated hardcoded
 	init_pos 		= np.array([0.0,0.0,0.0])
-	k_list[12345] 	= compromized_state(0.05, init_pos)
+	k_list[12345] 	= compromized_state(INITIAL_PROB, init_pos)
 
 	rospy.Subscriber("/turtlebot1/mobile_base/commands/velocity", Twist, beh_callback)
-	rospy.Subscriber("/turtlebot1/odom_throttle", Odometry, sns_callback)
-	#rospy.Subscriber("/turtlebot1/odometry/filtered_discrete", Odometry, sns_callback)
+	#rospy.Subscriber("/turtlebot1/odom_throttle", Odometry, sns_callback)
+	rospy.Subscriber("/turtlebot1/odometry/filtered_discrete", Odometry, sns_callback)
 
 	particle_pub 	= rospy.Publisher('pose_cloud', MarkerArray, queue_size=100)
 	rcv_pos 		= rospy.Publisher('rcv_pos', Marker, queue_size=100)
