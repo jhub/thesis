@@ -8,7 +8,6 @@ import numpy 	as np
 
 from visualization_msgs.msg import Marker, MarkerArray
 from scipy 					import spatial, stats
-from object_tracker.msg 	import behv, state, st_beh
 from geometry_msgs.msg 		import Twist
 from nav_msgs.msg			import Odometry
 from time 					import sleep
@@ -110,28 +109,11 @@ def get_yaw(orientation):
 
 
 def state_to_list(odom_msg):
-	# sum_vx 	= state_queue[-1][0].position.x - state_queue[0][0].position.x
-	# sum_rx 	= get_yaw(state_queue[-1][0].orientation) - get_yaw(state_queue[0][0].orientation)
-	# num_s	= (state_queue[-1][1] - state_queue[0][1]).to_sec()
-
-	# res_vx = sum_vx / num_s
-	# res_rz = sum_rx / num_s
-
 	st_list = [odom_msg.pose.pose.position.x, odom_msg.pose.pose.position.y, get_yaw(odom_msg.pose.pose.orientation)]
 
 	return st_list
 
 def beh_to_list(twist_msg):
-	# sum_ax = 0
-	# sum_az = 0
-
-	# sum_ax 	= twist_queue[-1][0].linear.x - twist_queue[0][0].linear.x
-	# sum_az 	= twist_queue[-1][0].angular.z - twist_queue[0][0].angular.z
-	# num_t	= (twist_queue[-1][1] - twist_queue[0][1]).to_sec()
-
-	# res_ax 	= sum_ax / num_t
-	# res_az 	= sum_az / num_t
-
 	bh_list = [twist_msg.linear.x , twist_msg.angular.z]
 	return bh_list
 
@@ -157,7 +139,7 @@ Sensor info coming in [x,y]
 def sns_callback(odom): #TODO if twist is already published obtain it instead
 	global k_list
 
-	mac 		= get_mac(state)
+	mac 		= get_mac(odom)
 	sensor_pt	= state_to_list(odom)
 	mean 		= k_list[mac].upd_PF_sens(sensor_pt)
 	publish_positions(mean, sensor_pt)
@@ -338,6 +320,3 @@ if __name__ == '__main__':
 	print "Map Comparator Ready!"
 
 	rospy.spin()
-
-
-	#publish_state_beh(state_beh_list, bc_interval)

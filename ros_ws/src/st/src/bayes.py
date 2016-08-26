@@ -41,6 +41,7 @@ class compromized_state(object):
 		if math.isnan(new_prob):
 			print "NaN cought"
 			return old_prob
+		print "Had org: " + str(new_prob)
 
 		if abs(new_prob - old_prob) > MAX_CHANGE_RATE:
 			new_prob = new_prob - MAX_CHANGE_RATE if new_prob > old_prob else new_prob + MAX_CHANGE_RATE
@@ -76,7 +77,7 @@ class compromized_state(object):
 	'''
 	def upd_PF_sens(self, sensor_point):
 		mean = self.particle_filter.upd_points(sensor_point)
-		return sensor_point #TODO: CHANGE!!! This bypasses the particle filter
+		return mean
 
 	'''
 	Updates the particle filter based on the motion model
