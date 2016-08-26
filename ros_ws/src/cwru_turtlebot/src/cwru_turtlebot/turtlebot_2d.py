@@ -91,7 +91,7 @@ def get_full_planned(g_func,map_beh, curr_state, beh_dur_list, dt):
 
 
 '''
-Used to choose between open loop trajectories; each element with [x, theta] velocities and the duration. With the given dt it creates a list to call.
+Pose targets for planner
 '''
 def load_target_lists(comp_map):
     un_comp                 = [[1,4,6,9,10],

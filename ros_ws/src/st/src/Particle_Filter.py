@@ -93,7 +93,7 @@ class Particle_Filter(object):
 		for i in range(self.array_size):
 			current_weight 			= offset + i * sample_interval
 
-			while current_weight > last_weight and rospy.is_shutdown():
+			while current_weight > last_weight:
 				index_weight 	+= 1
 				last_weight 	+= self.weights[index_weight]
 
@@ -122,9 +122,9 @@ class Particle_Filter(object):
 		
 
 	def rot_diff(self,rot_in):
-		while rot_in > pi and rospy.is_shutdown():
+		while rot_in > pi:
 			rot_in -= 2 * pi
-		while rot_in < -pi and rospy.is_shutdown():
+		while rot_in < -pi:
 			rot_in += 2 * pi
 		return rot_in
 

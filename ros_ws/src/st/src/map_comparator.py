@@ -76,10 +76,10 @@ Loads the compromised and uncompromised maps from planned coordinates
 '''
 def load_beh_lists_planned():
 	global bc_interval
-	un_comp 				= [ [[.5,0],2],[[1,0],2],[[1,-pi/8],2],[[1,pi/4],2],[[1,-pi/8],2],[[1,0],4],[[1,pi/8],2],[[1,-pi/4],2],[[1,pi/8],2],[[1,0],2],[[.5,0],2] ]
+	un_comp 				= [ [[.2,0],5],[[0,-pi/8],2],[[.2,0],21],[[0,pi/8],2],[[.2,0],10],[[0,pi/8],2],[[.2,0],21],[[0,-pi/8],2],[[.2,0],5] ]
 	beh_list_u				= get_sample_construct(un_comp,bc_interval)
 
-	comp 					= [ [[.5,0],2],[[1,0],18],[[.5,0],2] ]
+	comp 					= [ [[.2,0],50]]
 	beh_list_c				= get_sample_construct(comp,bc_interval)
 
 	return beh_list_u, beh_list_c
@@ -171,8 +171,9 @@ def get_comp_prob(state, bayes_obj):
 	u_results 		= kd_map_u.query(state,MAP_MAX_NGBR)
 	c_results 		= kd_map_c.query(state,MAP_MAX_NGBR)
 
-	u_prob			= compare_sb(state, bayes_obj.PF_behv(), u_results, map_st_beh_u)
-	c_prob			= compare_sb(state, bayes_obj.PF_behv(), c_results, map_st_beh_c)
+	curr_beh 		= bayes_obj.PF_behv()
+	u_prob			= compare_sb(state, curr_beh, u_results, map_st_beh_u)
+	c_prob			= compare_sb(state, curr_beh, c_results, map_st_beh_c)
 
 	try:
 		bayes_obj.update_prob(c_prob, u_prob)
@@ -200,7 +201,7 @@ Updates the particle filter
 def bayes_upd(bayes_obj):
 	UPD_FREQUENCY	= .1
 	upd = 0
-	while rospy.is_shutdown():
+	while True:
 		pointList = bayes_obj.get_PF_state()
 		#pointlist can be used to display, but should not be used to determine prob
 		if pointList is not None:
@@ -328,6 +329,7 @@ if __name__ == '__main__':
 	mean_pos 		= rospy.Publisher('mean_pos', Marker, queue_size=100)
 
 	for MAC in k_list:
+		print "Starting thread for robot: " + str(MAC)
 		listener_thread 			= Thread(target = bayes_upd, args = (k_list[MAC], ))
 		listener_thread.setDaemon(True)
 		listener_thread.start()

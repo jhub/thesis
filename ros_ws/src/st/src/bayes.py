@@ -65,7 +65,7 @@ class compromized_state(object):
 	'''
 	def upd_PF_sens(self, sensor_point):
 		mean = self.particle_filter.upd_points(sensor_point)
-		return mean #TODO: CHANGE!!! This bypasses the particle filter
+		return sensor_point #TODO: CHANGE!!! This bypasses the particle filter
 
 	'''
 	Updates the particle filter based on the motion model
