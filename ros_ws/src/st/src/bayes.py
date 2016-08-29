@@ -14,7 +14,7 @@ from obj_tr_constants	import d_limits, array_size, g_func_v_p, g_res_fn,h_functi
 
 dest_macs_lock		= RLock()
 
-MAX_CHANGE_RATE 	= .3
+MAX_CHANGE_RATE 	= .1
 
 class compromized_state(object):
 
@@ -34,17 +34,15 @@ class compromized_state(object):
 	'''
 	def update_prob(self, comp_prob, uncomp_prob):
 		tmp = comp_prob * self.c_prob / (comp_prob * self.c_prob + uncomp_prob * (1 - self.c_prob))
-		self.c_prob = self.adjust_prob(comp_prob, tmp)
+		self.c_prob = self.adjust_prob(self.c_prob, tmp)
 
 
 	def adjust_prob(self, old_prob, new_prob):
 		if math.isnan(new_prob):
 			print "NaN cought"
 			return old_prob
-		print "Had org: " + str(new_prob)
-
 		if abs(new_prob - old_prob) > MAX_CHANGE_RATE:
-			new_prob = new_prob - MAX_CHANGE_RATE if new_prob > old_prob else new_prob + MAX_CHANGE_RATE
+			new_prob = old_prob - MAX_CHANGE_RATE if new_prob < old_prob else old_prob + MAX_CHANGE_RATE
 
 		if new_prob < 0.0001:
 			new_prob = .0001

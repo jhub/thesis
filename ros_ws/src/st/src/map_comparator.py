@@ -19,37 +19,44 @@ from threading 				import Thread
 from obj_tr_constants		import x,y,th,v_x, v_th, data, pred_beh, bc_interval
 from obj_tr_constants		import g_func_v_p
 
-MAP_MAX_NGBR 	= 100
+MAP_MAX_NGBR 	= 5	
 
 COMPROMISED_STATE_CSV	= "uncomp_map.csv"
 UNCOMPROMISED_STATE_CSV = "comp_map.csv"
 
-st_var			= np.array([1,1,.4])
-beh_var 		= np.array([.2,.2])
+st_var			= np.array([.2,.2,.3])
+beh_var 		= np.array([.5,.5])
 rand_len		= 200
 
 COMPARE_SIZE 	= 3
 INITIAL_PROB 	= 0.05
+GAUSS_REPS 		= 10 	#1 + # of reps
+
+UPD_FREQUENCY	= .1
 
 '''
 Used to obtain the state/behavior lists and the map updated from those lists
 '''
-def get_full_planned(g_func,map_st_beh, curr_state, beh_list, dt):
+def get_full_planned(g_func,map_st_beh, init_state, beh_list, dt):
 	#pudb.set_trace() #For Debugging
+	global GAUSS_REPS
+	curr_state = init_state
 	for beh_dur in beh_list:
 		insert_noised(map_st_beh, curr_state, beh_dur)
-		g_func(curr_state,beh_dur,dt)
+		curr_state = g_func(curr_state,beh_dur,dt)
+	#pudb.set_trace() #For Debugging
 
 
 def insert_noised(map_st_beh, curr_state, curr_beh):
 	global st_var, beh_var#, rand_len
-	if not len(map_st_beh[data]):
-		map_st_beh[data] 		= np.atleast_2d(curr_state[:] + np.random.normal(0,st_var)).T 									#[[[statex],[statey],[stateth]],[[behx][behth]]
-		map_st_beh[pred_beh]	= np.atleast_2d(curr_beh[:] + np.random.normal(0,beh_var)).T
-	else:
-		map_st_beh[data] 		= np.hstack([map_st_beh[data],np.atleast_2d(curr_state[:] + np.random.normal(0,st_var)).T])		#[[[statex1,statex2],[statey1,statey2],[stateth1,stateth2]],
-		map_st_beh[pred_beh] 	= np.hstack([map_st_beh[pred_beh],np.atleast_2d(curr_beh[:] + np.random.normal(0,beh_var)).T])	#[[behx1, behx2][behth1,behth2]]
-	#print map_st_beh
+	global GAUSS_REPS
+	for g in range(GAUSS_REPS - 1):
+		if not len(map_st_beh[data]):
+			map_st_beh[data] 		= np.atleast_2d(curr_state[:] + np.random.normal(0,st_var)).T 									#[[[statex],[statey],[stateth]],[[behx][behth]]
+			map_st_beh[pred_beh]	= np.atleast_2d(curr_beh[:] + np.random.normal(0,beh_var)).T
+		else:
+			map_st_beh[data] 		= np.hstack([map_st_beh[data],np.atleast_2d(curr_state[:] + np.random.normal(0,st_var)).T])		#[[[statex1,statex2],[statey1,statey2],[stateth1,stateth2]],
+			map_st_beh[pred_beh] 	= np.hstack([map_st_beh[pred_beh],np.atleast_2d(curr_beh[:] + np.random.normal(0,beh_var)).T])	#[[behx1, behx2][behth1,behth2]]
 
 
 '''
@@ -158,6 +165,9 @@ def get_comp_prob(state, bayes_obj):
 	u_prob			= compare_sb(state, curr_beh, u_results, map_st_beh_u)
 	c_prob			= compare_sb(state, curr_beh, c_results, map_st_beh_c)
 
+	print "uncomp is: " + str(u_prob)
+	print "comp is: " 	+ str(c_prob)
+
 	try:
 		bayes_obj.update_prob(c_prob, u_prob)
 		return bayes_obj.get_c_prob()
@@ -168,13 +178,14 @@ def get_comp_prob(state, bayes_obj):
 
 def compare_sb(state, beh, kd_list, map_st_beh):
 	if len(kd_list) > 0 and len(kd_list[1]) > len(map_st_beh[0]): #check dimensions for enough pts (non singular matrix)
-
-		st_kernel 	= stats.gaussian_kde(map_st_beh[data]) 
-		#bh_kernel	= stats.gaussian_kde(map_st_beh[pred_beh]) 
+		st_kernel 	= stats.gaussian_kde(map_st_beh[data][]) #TODO: put indexes of found pts!! (kd list)
+		bh_kernel	= stats.gaussian_kde(map_st_beh[pred_beh][])
 		state_pdf 	= st_kernel.pdf(state)[0]			#Likelyhood of doing a recorded state
-		#beh_pdf 	= bh_kernel.pdf(beh)[0]				#Likelyhood of following a behavior prev done
+		beh_pdf 	= bh_kernel.pdf(beh)[0]				#Likelyhood of following a behavior prev done
 
-		return state_pdf# * beh_pdf
+		print state_pdf
+
+		return state_pdf[0] #* beh_pdf
 	raise Exception("Need more points")
 
 
@@ -182,17 +193,17 @@ def compare_sb(state, beh, kd_list, map_st_beh):
 Updates the particle filter
 '''
 def bayes_upd(bayes_obj):
-	UPD_FREQUENCY	= .1
+	
 	upd = 0
 	while True:
 		pointList = bayes_obj.get_PF_state()
 		#pointlist can be used to display, but should not be used to determine prob
 		if pointList is not None:
-			publish_particles(pointList)
+			publish_particles(pointList, particle_pub, [1,.3,.3,1])
 		rospy.sleep(UPD_FREQUENCY)
 
 
-def publish_particles(pointList):
+def publish_particles(pointList, pub, color, int_start = 0):
 
 	markerArray = MarkerArray()
 
@@ -208,32 +219,32 @@ def publish_particles(pointList):
 		marker.pose.position.z = 0
 
 		marker.scale.x = 0.4
-		marker.scale.y = 0.05
+		marker.scale.y = 0.04
 		marker.scale.z = 0.01
 
-		marker.color.a = 1.0
-		marker.color.r = .3
-		marker.color.r = 1
-		marker.color.b = .3
+		marker.color.a = color[0]
+		marker.color.r = color[1]
+		marker.color.g = color[2]
+		marker.color.b = color[3]
 
 		marker.pose.orientation.x 	= tempQuaternion[0]
 		marker.pose.orientation.y 	= tempQuaternion[1]
 		marker.pose.orientation.z 	= tempQuaternion[2]
 		marker.pose.orientation.w 	= tempQuaternion[3]
 
-		marker.id 				= i
+		marker.id 				= i + int_start
 		marker.header.frame_id 	= "/map"
 		marker.header.stamp 	= rospy.Time.now()
 		marker.action 			= marker.ADD
 
 		markerArray.markers.append(marker)
 
-	particle_pub.publish(markerArray)
+	pub.publish(markerArray)
 
 
 def publish_positions(mean_prtcl, rcv_prtcl):
-	mean_marker 	= get_marker(mean_prtcl, rand_len + 1, "/map", [.3,.3,1])
-	rcv_pos_marker 	= get_marker(rcv_prtcl, rand_len + 2, "/map", [1,.3,.3])
+	rcv_pos_marker 	= get_marker(rcv_prtcl, 50001, "/map", [1,.3,.3])
+	mean_marker 	= get_marker(mean_prtcl, 50002, "/map", [.3,.3,1])
 
 	mean_pos.publish(mean_marker)
 	rcv_pos.publish(rcv_pos_marker)
@@ -248,7 +259,7 @@ def get_marker(particle, ID, frame_id, color):
 
 	tempQuaternion				= tf.transformations.quaternion_from_euler(0, 0, particle[th])
 
-	marker.scale.x = 0.4
+	marker.scale.x = 0.2
 	marker.scale.y = 0.05
 	marker.scale.z = 0.01
 
@@ -277,7 +288,7 @@ def print_all(list_in):
 
 
 if __name__ == '__main__':
-	global bc_interval, kd_map_u, kd_map_c, map_st_beh_u, map_st_beh_c, k_list, particle_pub
+	global bc_interval, kd_map_u, kd_map_c, map_st_beh_u, map_st_beh_c, k_list, particle_pub, state_uncomp_pub, state_comp_pub
 	rospy.init_node('camp_comp', anonymous=True)
 
 	map_st_beh_u 			= [[],[]]
@@ -290,26 +301,30 @@ if __name__ == '__main__':
 	#pudb.set_trace() #For Debugging
 	beh_list_u, beh_list_c 	= load_beh_lists_planned()
 
-	get_full_planned(g_func_v_p,map_st_beh_u,init_state_u,beh_list_u,bc_interval)
+	state_uncomp_pub	= rospy.Publisher('state_uncomp', MarkerArray, queue_size=100)
+	state_comp_pub		= rospy.Publisher('state_comp', MarkerArray, queue_size=100)
+	particle_pub 		= rospy.Publisher('pose_cloud', MarkerArray, queue_size=100)
+	rcv_pos 			= rospy.Publisher('rcv_pos', Marker, queue_size=100)
+	mean_pos 			= rospy.Publisher('mean_pos', Marker, queue_size=100)
+
+
 	get_full_planned(g_func_v_p,map_st_beh_c,init_state_c,beh_list_c,bc_interval)
+	get_full_planned(g_func_v_p,map_st_beh_u,init_state_u,beh_list_u,bc_interval)
 
 
 	#print_all([map_st_beh_u[0],map_st_beh_c[0]])
 
-	kd_map_u = spatial.KDTree(map_st_beh_u[data].T)
 	kd_map_c = spatial.KDTree(map_st_beh_c[data].T)
+	kd_map_u = spatial.KDTree(map_st_beh_u[data].T)
 
 	#This is incoming conections, emulated hardcoded
 	init_pos 		= np.array([0.0,0.0,0.0])
 	k_list[12345] 	= compromized_state(INITIAL_PROB, init_pos)
 
 	rospy.Subscriber("/turtlebot1/mobile_base/commands/velocity", Twist, beh_callback)
-	#rospy.Subscriber("/turtlebot1/odom_throttle", Odometry, sns_callback)
-	rospy.Subscriber("/turtlebot1/odometry/filtered_discrete", Odometry, sns_callback)
+	rospy.Subscriber("/turtlebot1/odom_throttle", Odometry, sns_callback)
+	#rospy.Subscriber("/turtlebot1/odometry/filtered_discrete", Odometry, sns_callback)
 
-	particle_pub 	= rospy.Publisher('pose_cloud', MarkerArray, queue_size=100)
-	rcv_pos 		= rospy.Publisher('rcv_pos', Marker, queue_size=100)
-	mean_pos 		= rospy.Publisher('mean_pos', Marker, queue_size=100)
 
 	for MAC in k_list:
 		print "Starting thread for robot: " + str(MAC)
@@ -319,4 +334,9 @@ if __name__ == '__main__':
 
 	print "Map Comparator Ready!"
 
-	rospy.spin()
+	while not rospy.is_shutdown():
+		publish_particles(map_st_beh_c[0].T, state_comp_pub, [.2,.7,.7,.2], 10000)
+		publish_particles(map_st_beh_u[0].T, state_uncomp_pub,  [.2,.5,.5,.5], 20000)
+		rospy.sleep(UPD_FREQUENCY)
+
+	#rospy.spin()
