@@ -136,7 +136,7 @@ def main():
     for index in range(len(pos_list[0])):
         robot.move(goal_x=pos_list[0][index],
                    goal_y=pos_list[1][index],
-                   goal_yaw=pos_list[1][index],
+                   goal_yaw=pos_list[2][index],
                    x_lower_bound=x_lower,
                    x_upper_bound=x_upper,
                    y_lower_bound=y_lower,

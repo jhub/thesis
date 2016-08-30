@@ -12,7 +12,7 @@
     <node pkg="robot_localization" type="ukf_localization_node" name="ukf_continuous" clear_params="true" output="screen" required="true">
         <remap from="odometry/filtered" to="odometry/filtered_continuous"/>
         <remap from="set_pose" to="set_pose_continuous"/>
-        <param name="frequency" value="10"/>
+        <param name="frequency" value="2"/>
         <param name="sensor_timeout"  value="0.1"/>
         <param name="two_d_mode" value="true"/>
         <param name="odom_frame" value="$(arg model_name)/odom"/>

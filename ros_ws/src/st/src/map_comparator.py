@@ -15,9 +15,11 @@ from math 					import pi
 from collections			import deque
 from bayes 					import compromized_state
 from random 				import gauss
-from threading 				import Thread
+from threading 				import Thread, RLock
 from obj_tr_constants		import x,y,th,v_x, v_th, data, pred_beh, bc_interval
 from obj_tr_constants		import g_func_v_p
+
+curr_odom_lock 	= RLock()
 
 MAP_MAX_NGBR 	= 5	
 
@@ -33,6 +35,8 @@ INITIAL_PROB 	= 0.05
 GAUSS_REPS 		= 10 	#1 + # of reps
 
 UPD_FREQUENCY	= .1
+
+last_odom 		= None
 
 '''
 Used to obtain the state/behavior lists and the map updated from those lists
@@ -139,20 +143,32 @@ def beh_callback(twist):
 	beh 	= beh_to_list(twist)
 	k_list[mac].upd_PF_behv(beh)
 
+def sns_callback_pool():
+	global k_list, last_odom, curr_odom_lock
+	curr_odom = None
+	while True:
+		if last_odom is not curr_odom and last_odom is not None:
+			with curr_odom_lock:
+				curr_odom = last_odom
+				mac 		= get_mac(curr_odom)
+				sensor_pt	= state_to_list(curr_odom)
+				mean 		= k_list[mac].upd_PF_sens(sensor_pt)
+				publish_positions(mean)
+				prob  		= get_comp_prob(mean, k_list[mac])
+				if prob is not None:
+					print "Likelyhood of being compromised is: " + str(prob) 
+		else:
+			print "Didn't receive new sensor data!"
+			rospy.sleep(UPD_FREQUENCY)
+
 
 '''
 Sensor info coming in [x,y]
 '''
 def sns_callback(odom): #TODO if twist is already published obtain it instead
-	global k_list
-
-	mac 		= get_mac(odom)
-	sensor_pt	= state_to_list(odom)
-	mean 		= k_list[mac].upd_PF_sens(sensor_pt)
-	publish_positions(mean, sensor_pt)
-	prob  		= get_comp_prob(mean, k_list[mac])
-	if prob is not None:
-		print "Likelyhood of being compromised is: " + str(prob) 
+	global last_odom, curr_odom_lock
+	with curr_odom_lock:
+		last_odom = odom
 
 
 def get_comp_prob(state, bayes_obj):
@@ -178,14 +194,12 @@ def get_comp_prob(state, bayes_obj):
 
 def compare_sb(state, beh, kd_list, map_st_beh):
 	if len(kd_list) > 0 and len(kd_list[1]) > len(map_st_beh[0]): #check dimensions for enough pts (non singular matrix)
-		st_kernel 	= stats.gaussian_kde(map_st_beh[data][]) #TODO: put indexes of found pts!! (kd list)
-		bh_kernel	= stats.gaussian_kde(map_st_beh[pred_beh][])
+		st_kernel 	= stats.gaussian_kde(map_st_beh[data]) #TODO: put indexes of found pts!! (kd list)
+		bh_kernel	= stats.gaussian_kde(map_st_beh[pred_beh])
 		state_pdf 	= st_kernel.pdf(state)[0]			#Likelyhood of doing a recorded state
 		beh_pdf 	= bh_kernel.pdf(beh)[0]				#Likelyhood of following a behavior prev done
 
-		print state_pdf
-
-		return state_pdf[0] #* beh_pdf
+		return state_pdf * beh_pdf
 	raise Exception("Need more points")
 
 
@@ -242,12 +256,10 @@ def publish_particles(pointList, pub, color, int_start = 0):
 	pub.publish(markerArray)
 
 
-def publish_positions(mean_prtcl, rcv_prtcl):
-	rcv_pos_marker 	= get_marker(rcv_prtcl, 50001, "/map", [1,.3,.3])
+def publish_positions(mean_prtcl):
 	mean_marker 	= get_marker(mean_prtcl, 50002, "/map", [.3,.3,1])
 
 	mean_pos.publish(mean_marker)
-	rcv_pos.publish(rcv_pos_marker)
 
 
 def get_marker(particle, ID, frame_id, color):
@@ -321,9 +333,13 @@ if __name__ == '__main__':
 	init_pos 		= np.array([0.0,0.0,0.0])
 	k_list[12345] 	= compromized_state(INITIAL_PROB, init_pos)
 
+	sns_callback_thread 			= Thread(target = sns_callback_pool, args = ())
+	sns_callback_thread.setDaemon(True)
+	sns_callback_thread.start()
+
 	rospy.Subscriber("/turtlebot1/mobile_base/commands/velocity", Twist, beh_callback)
-	rospy.Subscriber("/turtlebot1/odom_throttle", Odometry, sns_callback)
-	#rospy.Subscriber("/turtlebot1/odometry/filtered_discrete", Odometry, sns_callback)
+	#rospy.Subscriber("/turtlebot1/odom_throttle", Odometry, sns_callback)
+	rospy.Subscriber("/turtlebot1/odometry/filtered_discrete", Odometry, sns_callback)
 
 
 	for MAC in k_list:
@@ -335,8 +351,8 @@ if __name__ == '__main__':
 	print "Map Comparator Ready!"
 
 	while not rospy.is_shutdown():
-		publish_particles(map_st_beh_c[0].T, state_comp_pub, [.2,.7,.7,.2], 10000)
-		publish_particles(map_st_beh_u[0].T, state_uncomp_pub,  [.2,.5,.5,.5], 20000)
+		publish_particles(map_st_beh_c[0].T, state_comp_pub, [.1,.7,.7,.2], 10000)
+		publish_particles(map_st_beh_u[0].T, state_uncomp_pub,  [.1,.5,.5,.5], 20000)
 		rospy.sleep(UPD_FREQUENCY)
 
 	#rospy.spin()

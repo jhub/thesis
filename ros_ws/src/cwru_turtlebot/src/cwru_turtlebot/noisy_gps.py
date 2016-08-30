@@ -38,7 +38,7 @@ def publish_gps(event):
         x_map = initial_position.pose.pose.position.x + gazebo_odom.pose.pose.position.x
         y_map = initial_position.pose.pose.position.y + gazebo_odom.pose.pose.position.y
 
-        horizontal_error = numpy.random.normal(scale=1.71)
+        horizontal_error = numpy.random.normal(scale=.01)
         theta = numpy.random.uniform(high=2*numpy.pi)
 
         noisy_gps = PoseWithCovarianceStamped()

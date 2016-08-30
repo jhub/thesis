@@ -15,5 +15,5 @@
     <!--<arg name="map_file" default="$(env TURTLEBOT_GAZEBO_MAP_FILE)"/>-->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="$(arg map_file)"/>-->
 
-    <node if="$(arg gui)" name="rviz" pkg="rviz" type="rviz" args="-d /home/matt/turtlebot_navigation.rviz" required="true"/>
+    <node if="$(arg gui)" name="rviz" pkg="rviz" type="rviz" args="-d $(env HOME)/turtlebot_navigation.rviz" required="true"/>
 </launch>
