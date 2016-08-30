@@ -21,7 +21,7 @@ from obj_tr_constants		import g_func_v_p
 
 curr_odom_lock 	= RLock()
 
-MAP_MAX_NGBR 	= 5	
+MAP_MAX_NGBR 	= 50
 
 COMPROMISED_STATE_CSV	= "uncomp_map.csv"
 UNCOMPROMISED_STATE_CSV = "comp_map.csv"
@@ -90,7 +90,7 @@ def load_beh_lists_planned():
 	un_comp 				= [ [[.2,0],5],[[0,-pi/8],2],[[.2,0],21],[[0,pi/8],2],[[.2,0],10],[[0,pi/8],2],[[.2,0],21],[[0,-pi/8],2],[[.2,0],5] ]
 	beh_list_u				= get_sample_construct(un_comp,bc_interval)
 
-	comp 					= [ [[.2,0],50]]
+	comp 					= [ [[.2,0],40]]
 	beh_list_c				= get_sample_construct(comp,bc_interval)
 
 	return beh_list_u, beh_list_c
@@ -149,7 +149,7 @@ def sns_callback_pool():
 	while True:
 		if last_odom is not curr_odom and last_odom is not None:
 			with curr_odom_lock:
-				curr_odom = last_odom
+				curr_odom 	= last_odom
 				mac 		= get_mac(curr_odom)
 				sensor_pt	= state_to_list(curr_odom)
 				mean 		= k_list[mac].upd_PF_sens(sensor_pt)
@@ -158,14 +158,14 @@ def sns_callback_pool():
 				if prob is not None:
 					print "Likelyhood of being compromised is: " + str(prob) 
 		else:
-			print "Didn't receive new sensor data!"
+			#print "Didn't receive new sensor data!"
 			rospy.sleep(UPD_FREQUENCY)
 
 
 '''
 Sensor info coming in [x,y]
 '''
-def sns_callback(odom): #TODO if twist is already published obtain it instead
+def sns_callback(odom):
 	global last_odom, curr_odom_lock
 	with curr_odom_lock:
 		last_odom = odom
@@ -192,10 +192,24 @@ def get_comp_prob(state, bayes_obj):
 		print "Not Found Mac"
 
 
+def get_inc(data_pts, indecies):
+	ind_pts = []
+	for i in indecies:
+		if not len(ind_pts):
+			ind_pts 		= np.atleast_2d(data_pts[:,i]).T 
+		else:
+			ind_pts 		= np.hstack([ind_pts,np.atleast_2d(data_pts[:,i]).T])
+	return ind_pts
+
+'''
+Used to obtain the probability that a state and behavior exhibited is likely based on a map
+'''
 def compare_sb(state, beh, kd_list, map_st_beh):
 	if len(kd_list) > 0 and len(kd_list[1]) > len(map_st_beh[0]): #check dimensions for enough pts (non singular matrix)
-		st_kernel 	= stats.gaussian_kde(map_st_beh[data]) #TODO: put indexes of found pts!! (kd list)
-		bh_kernel	= stats.gaussian_kde(map_st_beh[pred_beh])
+		sliced_st	= get_inc(map_st_beh[data],kd_list[1])
+		sliced_beh	= get_inc(map_st_beh[pred_beh],kd_list[1])
+		st_kernel 	= stats.gaussian_kde(sliced_st)
+		bh_kernel	= stats.gaussian_kde(sliced_beh)
 		state_pdf 	= st_kernel.pdf(state)[0]			#Likelyhood of doing a recorded state
 		beh_pdf 	= bh_kernel.pdf(beh)[0]				#Likelyhood of following a behavior prev done
 
@@ -309,7 +323,7 @@ if __name__ == '__main__':
 	bc_interval				= .2
 
 	init_state_u			= [0.0,0.0,0.0]
-	init_state_c			= [0.0,0.0,0.0]
+	init_state_c			= [1.0,0.0,0.0]
 	#pudb.set_trace() #For Debugging
 	beh_list_u, beh_list_c 	= load_beh_lists_planned()
 

@@ -124,16 +124,18 @@ def imu_callback(imu_msg):
 
 def noisy_odom_callback(odom_msg):
     global noisy_odom_data
-
-    pose_x = odom_msg.pose.pose.position.x + initial_x
-    pose_y = odom_msg.pose.pose.position.y + initial_y
-    pose_yaw = helpers.correct_angle(helpers.convert_quaternion_to_yaw(odom_msg.pose.pose.orientation) + initial_yaw)
-    x_vel = odom_msg.twist.twist.linear.x
-    yaw_vel = odom_msg.twist.twist.angular.z
-    x_variance = odom_msg.pose.covariance[0]
-    y_variance = odom_msg.pose.covariance[7]
-    yaw_variance = odom_msg.pose.covariance[35]
-    noisy_odom_data = (pose_x, pose_y, pose_yaw, x_vel, yaw_vel, x_variance, y_variance, yaw_variance)
+    if odom_msg.pose.pose.position.x is not None:
+        pose_x = odom_msg.pose.pose.position.x + initial_x
+        pose_y = odom_msg.pose.pose.position.y + initial_y
+        pose_yaw = helpers.correct_angle(helpers.convert_quaternion_to_yaw(odom_msg.pose.pose.orientation) + initial_yaw)
+        x_vel = odom_msg.twist.twist.linear.x
+        yaw_vel = odom_msg.twist.twist.angular.z
+        x_variance = odom_msg.pose.covariance[0]
+        y_variance = odom_msg.pose.covariance[7]
+        yaw_variance = odom_msg.pose.covariance[35]
+        noisy_odom_data = (pose_x, pose_y, pose_yaw, x_vel, yaw_vel, x_variance, y_variance, yaw_variance)
+    else:
+        noisy_odom_data = (0, 0, 0, 0, 0, 0, 0, 0)
 
 
 def gps_callback(gps_msg):
