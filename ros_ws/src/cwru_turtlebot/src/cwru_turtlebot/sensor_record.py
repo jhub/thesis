@@ -10,6 +10,7 @@ from nav_msgs.msg import Odometry
 from std_msgs.msg import UInt64
 from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
 from sensor_msgs.msg import Imu
+from sensor_msgs.msg        import ChannelFloat32
 
 # Data for recording
 initial_x = None
@@ -27,6 +28,7 @@ noisy_odom_data = None
 gps_data = None
 
 behv_data = None
+comp_data = None
 
 # csv.writer() objects
 continuous_writer = None
@@ -38,6 +40,7 @@ noisy_odom_writer = None
 gps_writer = None
 
 behv_writer = None
+comp_writer = None
 
 def initial_position_callback(position):
     # Record the initial position of the robot so that we can convert the odometry values from the robot's odom frame
@@ -156,6 +159,14 @@ def behv_callback(behv_msg):
     behv_data = (vx, vth)
 
 
+def comp_callback(comp_msg):
+    global comp_data
+
+    prob = comp_msg.values[0]
+
+    comp_data = (prob,)
+
+
 def make_sure_path_exists(path):
     global namespace
 
@@ -214,6 +225,12 @@ def write_headers():
         with open(filename, 'w+') as behv_file:
             writer = csv.writer(behv_file)
             writer.writerow(['vx', 'vth'])
+
+        filename = prefix + namespace + '_comp_data.csv'
+        with open(filename, 'w+') as comp_file:
+            writer = csv.writer(comp_file)
+            writer.writerow(['prob'])
+
     else:
         if namespace is None:
             rospy.logdebug('Could not write headers because namespace was not initialized')
@@ -232,6 +249,7 @@ def write_to_files(event):
     global noisy_odom_data
     global gps_data
     global behv_data
+    global comp_data
     global namespace
     global prefix
 
@@ -244,20 +262,30 @@ def write_to_files(event):
     global gps_writer
 
     global behv_writer
+    global comp_writer
 
     assert None not in (continuous_writer, discrete_writer, gazebo_writer, external_writer, imu_writer,
-                        noisy_odom_writer, gps_writer, behv_writer, namespace, prefix)
+                        noisy_odom_writer, gps_writer, behv_writer, comp_writer, namespace, prefix)
 
     # Synchronized writing for data published at 10Hz or higher
     if None not in (continuous_data, discrete_data, gazebo_data, external_count, imu_data, noisy_odom_data, behv_data):
         # rospy.logdebug(namespace + ': Writing to sensor data to files')
         continuous_writer.writerow(continuous_data)
-        discrete_writer.writerow(discrete_data)
         gazebo_writer.writerow(gazebo_data)
         external_writer.writerow(external_count)
         imu_writer.writerow(imu_data)
         noisy_odom_writer.writerow(noisy_odom_data)
-        behv_writer.writerow(behv_data)
+        
+        # GPS data publishes slower than odometry so it must be checked/written separately
+        if gps_data is not None:
+            gps_writer.writerow(gps_data)
+            gps_data = None
+
+        if comp_data is not None:
+            comp_writer.writerow(comp_data)
+            discrete_writer.writerow(discrete_data)
+            behv_writer.writerow(behv_data)
+            comp_data = None
 
         # Invalidate fields so that we don't record duplicate data multiple times in the case of sensor failure
         continuous_data = None
@@ -266,11 +294,6 @@ def write_to_files(event):
         imu_data = None
         noisy_odom_data = None
         behv_data = None
-
-        # GPS data publishes slower than odometry so it must be checked/written separately
-        if gps_data is not None:
-            gps_writer.writerow(gps_data)
-            gps_data = None
     else:
         if continuous_data is None:
             rospy.logdebug(namespace + ': Could not write data because continuous data was not initialized')
@@ -286,6 +309,8 @@ def write_to_files(event):
             rospy.logdebug(namespace + ': Could not write data because noisy odom data was not initialized')
         if behv_data is None:
             rospy.logdebug(namespace + ': Could not write data because behavior data was not initialized')        
+        if comp_data is None:
+            rospy.logdebug(namespace + ': Could not write data because comp data was not initialized')  
         if gps_data is None:
             rospy.logdebug(namespace + ': Could not write data because gps data was not initialized')
         if imu_data is None:
@@ -294,7 +319,7 @@ def write_to_files(event):
 
 def main():
     debug = rospy.get_param('/debug')
-    if debug:
+    if True:
         rospy.init_node('sensor_record', log_level=rospy.DEBUG)
     else:
         rospy.init_node('sensor_record')
@@ -327,7 +352,8 @@ def main():
     noisy_odom_subscriber = rospy.Subscriber('noisy_odom_remapped', Odometry, noisy_odom_callback)
     gps_subscriber = rospy.Subscriber('fake_gps', PoseWithCovarianceStamped, gps_callback)
 
-    behv_subcriber   = rospy.Subscriber("mobile_base/commands/velocity", Twist, behv_callback)
+    behv_subcriber   = rospy.Subscriber("/turtlebot1/mobile_base/commands/velocity", Twist, behv_callback)
+    comp_subcriber   = rospy.Subscriber("/comp_prob", ChannelFloat32, comp_callback) #TODO: fill in the rest of the file with comp write!
 
     global continuous_writer
     global discrete_writer
@@ -338,6 +364,7 @@ def main():
     global gps_writer
 
     global behv_writer
+    global comp_writer
 
     print "Writing data to: " + prefix + namespace
 
@@ -348,7 +375,8 @@ def main():
         open(prefix + namespace + '_imu_data.csv', 'a+') as imu_file, \
         open(prefix + namespace + '_noisy_odom_data.csv', 'a+') as noisy_odom_file, \
         open(prefix + namespace + '_gps_data.csv', 'a+') as gps_file,\
-        open(prefix + namespace + '_behv_data.csv', 'a+') as behv_file:
+        open(prefix + namespace + '_behv_data.csv', 'a+') as behv_file,\
+        open(prefix + namespace + '_comp_data.csv', 'a+') as comp_file:
 
         continuous_writer = csv.writer(continuous_file)
         discrete_writer = csv.writer(discrete_file)
@@ -359,8 +387,9 @@ def main():
         gps_writer = csv.writer(gps_file)
 
         behv_writer = csv.writer(behv_file)
+        comp_writer = csv.writer(comp_file)
 
-        timer = rospy.Timer(rospy.Duration(.1), write_to_files)
+        timer = rospy.Timer(rospy.Duration(.2), write_to_files)
         
         while not rospy.is_shutdown():
             rospy.spin()

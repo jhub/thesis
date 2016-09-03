@@ -7,9 +7,10 @@ import pudb
 import numpy 	as np
 
 from visualization_msgs.msg import Marker, MarkerArray
-from scipy 					import spatial, stats
 from geometry_msgs.msg 		import Twist
 from nav_msgs.msg			import Odometry
+from sensor_msgs.msg 		import ChannelFloat32
+from scipy 					import spatial, stats
 from time 					import sleep
 from math 					import pi
 from collections			import deque
@@ -66,12 +67,12 @@ def insert_noised(map_st_beh, curr_state, curr_beh):
 '''
 loads a csv file of states
 '''
-def load_csv_states(filename):
-	beh_list = []
-	with open('filename', 'rb') as csvfile:
-		spamreader = csv.reader(csvfile, delimiter=' ', quotechar='|')
-		for row in spamreader:
-			print ', '.join(row)
+# def load_csv_states(filename):
+# 	beh_list = []
+# 	with open('filename', 'rb') as csvfile:
+# 		spamreader = csv.reader(csvfile, delimiter=' ', quotechar='|')
+# 		for row in spamreader:
+# 			print ', '.join(row)
 
 '''
 Loads the compromised and uncompromised maps from planned coordinates
@@ -144,7 +145,7 @@ def beh_callback(twist):
 	k_list[mac].upd_PF_behv(beh)
 
 def sns_callback_pool():
-	global k_list, last_odom, curr_odom_lock
+	global k_list, last_odom, curr_odom_lock, comp_prob
 	curr_odom = None
 	while True:
 		if last_odom is not curr_odom and last_odom is not None:
@@ -156,7 +157,11 @@ def sns_callback_pool():
 				publish_positions(mean)
 				prob  		= get_comp_prob(mean, k_list[mac])
 				if prob is not None:
-					print "Likelyhood of being compromised is: " + str(prob) 
+					comp_msg 		= ChannelFloat32()
+					comp_msg.name 	= str(mac)
+					comp_msg.values = [prob]
+					comp_prob.publish(comp_msg)
+					#print "Likelyhood of being compromised is: " + str(prob) 
 		else:
 			#print "Didn't receive new sensor data!"
 			rospy.sleep(UPD_FREQUENCY)
@@ -181,15 +186,13 @@ def get_comp_prob(state, bayes_obj):
 	u_prob			= compare_sb(state, curr_beh, u_results, map_st_beh_u)
 	c_prob			= compare_sb(state, curr_beh, c_results, map_st_beh_c)
 
-	print "uncomp is: " + str(u_prob)
-	print "comp is: " 	+ str(c_prob)
+	#print "uncomp is: " + str(u_prob)
+	#print "comp is: " 	+ str(c_prob)
 
-	try:
-		bayes_obj.update_prob(c_prob, u_prob)
-		return bayes_obj.get_c_prob()
-		#print "compromised" if comp_prob > .9 else "Not compromised" if comp_prob < .1 else "Determining"
-	except Exception:
-		print "Not Found Mac"
+	bayes_obj.update_prob(c_prob, u_prob)
+	return bayes_obj.get_c_prob()
+	#print "compromised" if comp_prob > .9 else "Not compromised" if comp_prob < .1 else "Determining"
+
 
 
 def get_inc(data_pts, indecies):
@@ -314,7 +317,7 @@ def print_all(list_in):
 
 
 if __name__ == '__main__':
-	global bc_interval, kd_map_u, kd_map_c, map_st_beh_u, map_st_beh_c, k_list, particle_pub, state_uncomp_pub, state_comp_pub
+	global bc_interval, kd_map_u, kd_map_c, map_st_beh_u, map_st_beh_c, k_list, particle_pub, state_uncomp_pub, state_comp_pub, rcv_pos, mean_pos, comp_prob
 	rospy.init_node('camp_comp', anonymous=True)
 
 	map_st_beh_u 			= [[],[]]
@@ -332,6 +335,7 @@ if __name__ == '__main__':
 	particle_pub 		= rospy.Publisher('pose_cloud', MarkerArray, queue_size=100)
 	rcv_pos 			= rospy.Publisher('rcv_pos', Marker, queue_size=100)
 	mean_pos 			= rospy.Publisher('mean_pos', Marker, queue_size=100)
+	comp_prob 			= rospy.Publisher('comp_prob', ChannelFloat32, queue_size=100)
 
 
 	get_full_planned(g_func_v_p,map_st_beh_c,init_state_c,beh_list_c,bc_interval)
